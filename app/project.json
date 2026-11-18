@@ -63,6 +63,26 @@
     "repeated_header": "重复表头",
     "row_balanced": "行守恒",
     "money_balanced": "金额守恒",
-    "blocked": "阻断项"
+    "blocked": "阻断项",
+    "weighed_at": "称重时间",
+    "dealt_at": "成交时间",
+    "reweighed_at": "复秤时间",
+    "period_code": "时段",
+    "period_label": "时段名称",
+    "period_rate": "档期扣杂率",
+    "period_from": "档期起",
+    "period_to": "档期止",
+    "pricing_basis": "计价依据",
+    "pricing_key": "计价依据指纹",
+    "lock_at": "锁定时点",
+    "lock_basis": "锁档依据",
+    "lock_basis_label": "锁档依据",
+    "locked_by": "锁定来源",
+    "cross_period": "跨档",
+    "cross_reason": "跨档说明",
+    "rate_note": "扣杂率说明",
+    "ticket_rate": "票面扣杂率",
+    "standard_version": "标准版本",
+    "pricing_drift": "计价漂移票"
   }
 }

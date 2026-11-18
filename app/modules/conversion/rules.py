@@ -1,6 +1,11 @@
-from app.coerce import number, money
+from app.coerce import number
 from app.errors import BusinessError
 from app.reasons import reject
+from app.standards import to_local
+
+def _time(row, key):
+    text=(row.get(key) or '').strip()
+    return to_local(text) if text else ''
 
 def normalize(row):
     out=dict(row)
@@ -13,6 +18,10 @@ def normalize(row):
         raise BusinessError('INVALID_RANGE','重量、单价、扣杂率或版本越界')
     out.update(weight_kg=str(weight),price=str(price),rate=str(rate),paid=str(paid),version=int(version))
     if not row['ticket'].strip() or not row['fish'].strip(): raise BusinessError('UNKNOWN_REFERENCE','票号或品类缺失')
+    for key in ('weighed_at','dealt_at','reweighed_at'):
+        out[key]=_time(row,key)
+    # 成交时间是锁档依据，缺失即无法计价；称重与复秤可以后补，故只对成交时点强制。
+    if not out['dealt_at']: raise BusinessError('BAD_TIME','缺少成交时间，无法锁定扣杂档期')
     return out
 
 def apply(state):

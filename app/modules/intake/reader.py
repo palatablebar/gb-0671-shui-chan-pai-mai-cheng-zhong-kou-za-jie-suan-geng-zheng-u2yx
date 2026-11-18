@@ -1,8 +1,8 @@
-import csv, io, hashlib
+import csv, io
 from app.errors import BusinessError
 from app.reasons import reject
 
-def read_source(state, fields, aliases):
+def read_source(state, fields, aliases, extras=()):
     raw=state['raw_bytes']
     if not raw: raise BusinessError('EMPTY_FILE','请选择非空文件')
     if not raw.strip(b'\xef\xbb\xbf\r\n \t'): raise BusinessError('BLANK_FILE','文件只有空行')
@@ -12,10 +12,12 @@ def read_source(state, fields, aliases):
         except UnicodeDecodeError: continue
     if text is None: raise BusinessError('BAD_ENCODING','文件编码无法识别')
     stream=csv.reader(io.StringIO(text,newline=''),strict=True)
+    header=fields+list(extras)
     try:
         original=next(stream)
-        header=[aliases.get(v.strip(),v.strip()) for v in original]
-        if header!=fields: raise BusinessError('BAD_HEADER','字段或顺序不匹配')
+        normalized=[aliases.get(v.strip(),v.strip()) for v in original]
+        # 时点列为新增证据：旧票面没有它们时仍可导入，缺列由后续档期锁定显式报因。
+        if normalized not in (header,list(fields)): raise BusinessError('BAD_HEADER','字段或顺序不匹配')
         state['counts']={'input':0,'blank':0,'repeated_header':0,'duplicate':0}
         records=[]
         for cells in stream:
@@ -23,10 +25,14 @@ def read_source(state, fields, aliases):
             state['counts']['input']+=1
             if not cells or not any(v.strip() for v in cells):
                 state['counts']['blank']+=1;continue
-            if cells==original:
+            # 分段表头可能带或不带时点列，只要字段名归一后与表头前缀一致就计入重复表头。
+            if [aliases.get(v.strip(),v.strip()) for v in cells] in (header,list(fields)):
                 state['counts']['repeated_header']+=1;continue
-            row=dict(zip(header,cells));row['_line']=line
-            if len(cells)!=len(header): reject(state,row,'COLUMN_COUNT',f'需要{len(header)}列，实际{len(cells)}列');continue
+            row=dict(zip(normalized,cells))
+            for key in extras: row.setdefault(key,'')
+            row['_line']=line
+            if len(cells) not in (len(fields),len(header)):
+                reject(state,row,'COLUMN_COUNT',f'需要{len(fields)}至{len(header)}列，实际{len(cells)}列');continue
             if not row.get('id','').strip(): reject(state,row,'MISSING_ID','编号不能为空');continue
             row['id']=row['id'].strip();records.append(row)
     except csv.Error:

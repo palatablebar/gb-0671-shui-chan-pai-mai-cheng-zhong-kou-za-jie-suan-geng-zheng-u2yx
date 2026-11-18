@@ -10,5 +10,25 @@
   ],
   "market": "东港水产",
   "currency": "CNY",
-  "weight_unit": "kg"
+  "weight_unit": "kg",
+  "standards": {
+    "version": "std-site-default",
+    "basis": "dealt_at",
+    "periods": [
+      {
+        "code": "D1",
+        "label": "17日夜场旧档",
+        "effective_from": "2026-11-17T12:00:00+08:00",
+        "effective_to": "2026-11-18T00:00:00+08:00",
+        "rate": "0.05"
+      },
+      {
+        "code": "N1",
+        "label": "18日零点新档",
+        "effective_from": "2026-11-18T00:00:00+08:00",
+        "effective_to": "2026-11-18T12:00:00+08:00",
+        "rate": "0.05"
+      }
+    ]
+  }
 }

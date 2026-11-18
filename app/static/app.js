@@ -7,6 +7,22 @@ document.querySelector('#filter').addEventListener('input',event=>{const text=ev
 const review=document.querySelector('#review');if(review)review.addEventListener('click',async()=>{try{const run=await fetch('/api/runs/'+review.dataset.id).then(r=>r.json());const result=await request('/api/runs/'+review.dataset.id+'/review',{revision:run.revision});feedback.textContent=result.status;}catch(error){feedback.textContent=error.message;}});
 const selected=new URL(location.href).searchParams.get('dataset');if(selected)document.querySelector('#dataset').value=selected;
 
+const switcher=document.querySelector('#switch-standard');
+if(switcher){
+ switcher.addEventListener('click',async event=>{
+  const preset=document.querySelector('#standard-preset').value;
+  const note=document.querySelector('#switch-feedback');
+  event.target.disabled=true;note.textContent='按新档重算中…';
+  try{
+   const response=await fetch('/api/runs/'+switcher.dataset.id+'/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({standard:preset})});
+   const data=await response.json();
+   if(!response.ok){note.textContent='换档未通过，保留旧版：'+(data.detail||'原因未知');return;}
+   const url=new URL(location.href);url.searchParams.set('run_id',data.manifest.run_id);location.href=url;
+  }catch(error){note.textContent='换档未通过，保留旧版：'+error.message;}
+  finally{event.target.disabled=false;}
+ });
+}
+
 const filePicker=document.querySelector('#csv-file');
 if(filePicker){
  const editor=document.querySelector('#csv-text');

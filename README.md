@@ -11,9 +11,24 @@ docker compose exec -T app pytest -q
 
 浏览器访问 http://localhost:18240 。默认载入现场脏批，包含53条逻辑输入、重复表头、缺列、空值、重复冲突、缺皮重、毛重小于皮重等问题。切换“核验清批”或“旧编码批”后重跑。进入“更正裁决”核对票00001：原应付1168.50CNY，更正后1285.35CNY，已付1168.50CNY，仅待付116.85CNY。
 
-API：各模块 `POST /api/<导航英文名>`；完整运行 `POST /api/runs`，JSON参数可用 `dataset` 或 `csv_text`。查询历史 `GET /api/runs`，复核 `POST /api/runs/{run_id}/review`，传入当前 `revision`。封存下载只有 `GET /api/export/{run_id}` 一个入口。
+## 零点换档怎么锁标准
 
-同输入和规则摘要生成相同批号，不新增重复记录；复核版本改变后旧版本提交返回409。SQLite保存在命名卷。可使用新卷名称重建演示数据，原卷保留。
+只按称重时间会把成交后的让价算进旧档；只按结算时间会让旧场货包按新档重结。因此**唯一锁档依据是成交时间 `dealt_at`**，档期边界左闭右开（零点整归新档）。
+
+| 情形 | 采用的档期 | 页面标记 |
+|---|---|---|
+| 旧档称重、零点后成交（票00013） | 新档 N1 | 跨档：称重落在别档 |
+| 旧档成交、新档晚到复秤（票00014） | 旧档 D1 | 跨档：复秤落在别档 |
+| 更正版在零点后复称/成交（票00001 v2） | 继承基础版旧档 D1 | 跨档：按基础版档期计价 |
+| 同票版本锁到不同档 | 不结算，`PRICING_BASIS_DRIFT` 阻断 | 更正页冲突列表 |
+
+“扣杂竞价”页逐票展示：采用的时段、锁定时点与锁定来源、计价依据（档期编码和扣杂率）、跨档原因、扣杂率说明、本次结果的重算来源；另有跨档票清单与换档尝试记录。“更正裁决”页逐版列示计价依据，“对账”页按档期汇总，“归档”页展示封存依据与换档历史。
+
+换档入口：`POST /api/runs/{run_id}/switch`，参数 `{"standard": "night-tight"}`（预设名）或完整档期对象；`GET /api/standards` 列出预设。成功则生成带 `lineage.source_run_id` 的新批次并保留旧版；失败（漏档、行/金额不守恒、票数变化）返回 409 `SWITCH_REJECTED`，只写拒绝记录，不新增结算、不删原始称重与成交证据。同批 `rerun` 批号不变、不新增结算。
+
+API：各模块 `POST /api/<导航英文名>`；完整运行 `POST /api/runs`，JSON参数可用 `dataset` 或 `csv_text`。查询历史 `GET /api/runs`，复核 `POST /api/runs/{run_id}/review`，传入当前 `revision`。封存下载只有 `GET /api/export/{run_id}` 一个入口；凭证包含 `manifest.json`、`standards.json`、`settlements.json`、`evidence.json`。
+
+同输入和规则摘要（含生效档期标准）生成相同批号，不新增重复记录；复核版本改变后旧版本提交返回409。SQLite保存在命名卷。可使用新卷名称重建演示数据，原卷保留。
 
 定义见 `docs/DATA-DICTIONARY.md`，模块与测试映射见 `docs/DEPTH.md`。源码在 `app/`，业务样例在 `sample_data/`，测试在 `tests/`。不连接实际秤台和支付渠道。
 

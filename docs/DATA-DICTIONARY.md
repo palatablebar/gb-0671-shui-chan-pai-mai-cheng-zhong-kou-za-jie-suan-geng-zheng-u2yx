@@ -5,3 +5,39 @@
 每票第一版不填写 replaces。后续版本只能替代当前生效版，分支或缺基版整票阻断结算。已支付额为各版本中最大累计已付值，待付=最终应付−累计已付；负待付表示待收回。
 同编号同原值仅计一次；同编号不同原值全部隔离。空文件、全空行和仅表头分别报错。原始输入计数包括空行及重复表头，对账会分别解释。
 归档封存保存逐版证据、隔离原因和运行摘要，非支付执行系统。数据使用虚构编号，不连接实际支付渠道。
+
+## 时点列（原始证据，不参与改写）
+
+| 列 | 含义 | 是否锁档 |
+|---|---|---|
+| `weighed_at` | 首次称重时间，带时区偏移 | 否，仅作证据 |
+| `dealt_at` | 成交时间，带时区偏移 | **是，唯一锁档依据** |
+| `reweighed_at` | 晚到复秤时间，可为空 | 否，仅作证据 |
+
+三列均可缺列。缺 `dealt_at` 的记录无法确定档期，按 `BAD_TIME` 隔离；毛皮两行的三个时点任一不一致按 `PAIR_TIME_MISMATCH` 整组隔离。
+
+## 扣杂档期标准
+
+```json
+{"standards": {"version": "std-site-default", "basis": "dealt_at",
+  "periods": [{"code": "D1", "label": "17日夜场旧档",
+               "effective_from": "2026-11-17T12:00:00+08:00",
+               "effective_to": "2026-11-18T00:00:00+08:00", "rate": "0.05"}]}}
+```
+
+- `basis` 只接受 `dealt_at`；传 `weighed_at`（称重）或 `settled_at`（结算）返回 `BAD_LOCK_BASIS`。
+- 档期边界左闭右开：`effective_from <= dealt_at < effective_to`，零点整成交归新档。
+- 档期不得重叠、编码不得重复、扣杂率须在 [0,1) 内，否则 `BAD_STANDARD`，整次计算不落库。
+- 同一票的所有版本（原始版、更正式、复称版）共用**基础版本**成交时点锁定的档期。
+- 计价采用所锁档期的 `rate`；票面 `rate` 原样保留，二者不一致时在 `rate_note` 显式记录。
+- 称重/复秤/版本次成交落在别档时置 `cross_period=true` 并写 `cross_reason`，但不改变锁档。
+
+## 结算行新增字段
+
+`period_code` 时段编码、`period_label` 时段名称、`period_rate` 档期扣杂率、`pricing_basis` 计价依据、
+`lock_basis`/`lock_basis_label` 锁档依据、`lock_at` 锁定时点、`locked_by` 锁定来源（基础版本或基础版本vN）、
+`cross_period`/`cross_reason` 跨档标记与说明、`pricing_key` 计价依据指纹（用于发现同票漂移）、
+`ticket_rate` 票面扣杂率、`rate_note` 扣杂率说明。
+
+归档封存的 `seal` 覆盖生效票、档期标准与逐票计价依据；换档重算会改变封存指纹，从而无法用旧凭证冒充新结论。
+
